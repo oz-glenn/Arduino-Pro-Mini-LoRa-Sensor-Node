@@ -131,7 +131,10 @@ void ReadSoilSensor()
 {
  //Read the value 
   int soil_reading = analogRead(SOIL_SENSOR_PIN); 
-
+  
+  Serial.print("Soil Reading ");
+  Serial.println(soil_reading);
+  
   //convert to percentage here for transmission
 
   SOIL_MOISTURE_PERCENT = map(soil_reading, AIR_VALUE,WATER_VALUE, 0, 100);

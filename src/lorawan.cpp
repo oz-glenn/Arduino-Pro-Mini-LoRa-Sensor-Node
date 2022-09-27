@@ -214,7 +214,7 @@ void LoRaWANGetData()
     TurnOffSensors();   
 
     int16_t temp = (TEMPERATURE * 10);
-    int16_t vbatint = (VBAT * 10);
+    int8_t vbatint = (VBAT * 100) - 200;
     int16_t soil = (SOIL_MOISTURE_PERCENT * 10);
 
     if (isnan(TEMPERATURE))
@@ -235,8 +235,8 @@ void LoRaWANGetData()
     }
     else
     {
-        LORA_DATA[0] = vbatint >> 8;
-        LORA_DATA[1] = vbatint & 0xFF;
+        LORA_DATA[0] = vbatint /*>> 8*/;
+        //LORA_DATA[1] = vbatint & 0xFF;
     }
 
     if (isnan(SOIL_MOISTURE_PERCENT))
