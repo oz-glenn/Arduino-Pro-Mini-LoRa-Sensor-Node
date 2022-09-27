@@ -1,6 +1,9 @@
 #include "global.h"
 #include "io_pins.h"
 
-float HUMIDITY = NAN;
+float VBAT = NAN;
 float TEMPERATURE = NAN;
-DHT DHTSENSOR;
+float SHUTDOWN_VOLTAGE = 3.5;
+int AIR_VALUE = 629;
+int WATER_VALUE = 395;
+float SOIL_MOISTURE_PERCENT = NAN;

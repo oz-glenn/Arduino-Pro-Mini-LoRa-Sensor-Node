@@ -1,12 +1,29 @@
 #include "functions.h"
 #include "io_pins.h"
 #include "global.h"
-#include "DHT.h"
+//#include "DHT.h"
 
 void Setup_Pins()
 {
     pinMode(PIN_INFO_LED, OUTPUT);
+    pinMode(PIN_SHUTDOWN, OUTPUT);
+    pinMode(PIN_SENSOR_ACTIVATION, OUTPUT);
+    pinMode(VBAT_SENSOR_PIN, INPUT);
+    pinMode(TEMP_SENSOR_PIN, INPUT);
+    pinMode(SOIL_SENSOR_PIN, INPUT);
+    pinMode(7, INPUT_PULLUP); //stop unused 
+    pinMode(8, INPUT_PULLUP); //
+    pinMode(A3, INPUT_PULLUP); //pins floating
+    
+    analogReference(DEFAULT);
 }
+
+//void unSetup_Pins()
+//{
+//    pinMode(PIN_INFO_LED, INPUT);
+//    pinMode(PIN_SHUTDOWN, INPUT);
+//    pinMode(PIN_SENSOR_ACTIVATION, INPUT);
+//}
 
 void Blink_Info_LED()
 {
@@ -16,8 +33,9 @@ void Blink_Info_LED()
     delay(30);
 }
 
-// https://provideyourown.com/2012/secret-arduino-voltmeter-measure-battery-voltage/
-long ReadVcc() {
+void ReadVbat() {
+ /*
+  // https://provideyourown.com/2012/secret-arduino-voltmeter-measure-battery-voltage/ 
   // Read 1.1V reference against AVcc
   // set the reference to Vcc and the measurement to the internal 1.1V reference
   #if defined(__AVR_ATmega32U4__) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
@@ -38,24 +56,89 @@ long ReadVcc() {
   uint8_t adc_high = ADCH; // unlocks both
   long adc_result = (adc_high<<8) | adc_low;
   adc_result = 1125300L / adc_result; // Calculate Vcc (in mV); 1125300 = 1.1*1023*1000
-  return adc_result; // Vcc in millivolts
+  return adc_result; // Vcc in millivolts*/
+
+  VBAT = analogRead(VBAT_SENSOR_PIN) * 0.01513944223; //// calibrate by changing the last digit(s) of 0.0166
+                                                      //// calibrated 24/9/22.
+
+  Serial.print("The battery is ");
+  Serial.print(VBAT);
+  Serial.println(" volts");
 }
 
-void ReadDHTSensor()
+bool CheckShutdown()
 {
-  float t = DHTSENSOR.getTemperature();
-  float h = DHTSENSOR.getHumidity();
+ //Check if battery voltage is too low
+ //Return true for succesful test
 
-  Serial.print("DHT: ");
-  Serial.println(DHTSENSOR.getStatusString());
-  
-  HUMIDITY = h;
-  TEMPERATURE = t;
+ if (isnan(VBAT))
+ {
+    return false;
+ }
+ else
+ {
+  if (VBAT <= SHUTDOWN_VOLTAGE)
+  {
+    Serial.println("Shutting down");
+    delay(30);
+    //Activate Voltage Regulator SD pin drain transistor.
+    digitalWrite(PIN_SHUTDOWN, HIGH);
+    delay(300);
+  }
+ }
+ return true;
+}
 
-  Serial.print(HUMIDITY);
-  Serial.println(" %");
+void TurnOnSensors()
+{
+  Serial.println("Activating Sensors");
+  digitalWrite(PIN_SENSOR_ACTIVATION, HIGH);
+  delay(2000); //wait 1s for readings to settle
+}
+
+void TurnOffSensors()
+{
+  Serial.println("Deactivating Sensors");
+  digitalWrite(PIN_SENSOR_ACTIVATION, LOW);
+  delay(30);
+  //unSetup_Pins();
+  //delay(30);
+}
+
+void ReadTempSensor()
+{
+ //Read and average the temp 
+  int numReadings = 50;
+  int averageReading = 0;
+  for (int n = 0; n < numReadings; n++) 
+    averageReading += analogRead(TEMP_SENSOR_PIN);
+
+  averageReading /= numReadings;
+
+  //Serial.print("Temp Pin average reading: ");
+  //Serial.println(averageReading);
+
+  float voltage = averageReading * (3300/1024.0);
+
+  TEMPERATURE= (voltage - 585) /10; //was 500, but 585 seems to work with the soil sensor also attached.
+  Serial.print("Temperature: ");
   Serial.print(TEMPERATURE);
-  Serial.println(" °C");
+  Serial.print(" \xC2\xB0"); // shows degree symbol
+  Serial.println("C");
+}
+
+void ReadSoilSensor()
+{
+ //Read the value 
+  int soil_reading = analogRead(SOIL_SENSOR_PIN); 
+
+  //convert to percentage here for transmission
+
+  SOIL_MOISTURE_PERCENT = map(soil_reading, AIR_VALUE,WATER_VALUE, 0, 100);
+
+  Serial.print("Soil moisture ");
+  Serial.print(SOIL_MOISTURE_PERCENT);
+  Serial.println("%");
 }
 
 void PrintResetReason()

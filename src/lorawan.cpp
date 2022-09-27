@@ -15,7 +15,7 @@ const lmic_pinmap lmic_pins = {
     .dio = {PIN_LMIC_DIO0, PIN_LMIC_DIO1, PIN_LMIC_DIO2},
 };
 
-static uint8_t LORA_DATA[4];
+static uint8_t LORA_DATA[6];
 
 // Schedule TX every this many seconds (might become longer due to duty cycle limitations).
 const unsigned TX_INTERVAL = LORA_TX_INTERVAL;
@@ -142,6 +142,10 @@ void onEvent(ev_t ev)
             Serial.println(F(" bytes of payload"));
         }
 
+        //check if the battery is still good
+        ReadVbat();
+        CheckShutdown();
+
         // Schedule next transmission
         os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(TX_INTERVAL), LoRaWANDo_send);
         GO_DEEP_SLEEP = true;
@@ -202,13 +206,16 @@ void LoRaWANDo(void)
 
 void LoRaWANGetData()
 {
-    ReadDHTSensor();
-
-    uint8_t vcc = (ReadVcc() / 10) - 200;
-
-    uint8_t humidity_lora = HUMIDITY;
+    TurnOnSensors();
+    ReadTempSensor();
+    ReadVbat();
+    ReadSoilSensor();
+    CheckShutdown();
+    TurnOffSensors();   
 
     int16_t temp = (TEMPERATURE * 10);
+    int16_t vbatint = (VBAT * 10);
+    int16_t soil = (SOIL_MOISTURE_PERCENT * 10);
 
     if (isnan(TEMPERATURE))
     {
@@ -221,27 +228,27 @@ void LoRaWANGetData()
         LORA_DATA[3] = temp & 0xFF;
     }
 
-    if (isnan(HUMIDITY))
+    if (isnan(VBAT))
     {
+        LORA_DATA[0] = 255;
         LORA_DATA[1] = 255;
     }
     else
     {
-        float check = HUMIDITY - humidity_lora;
-        LORA_DATA[1] = humidity_lora;
-
-        // Bit 8 for decimal 1 = 0.5
-        if (check > 0.251 && check < 0.751)
-        {
-            LORA_DATA[1] |= (1 << 7);
-        }
-        else if (check > 0.751)
-        {
-            LORA_DATA[1] = LORA_DATA[1] + 1;
-        }
+        LORA_DATA[0] = vbatint >> 8;
+        LORA_DATA[1] = vbatint & 0xFF;
     }
 
-    LORA_DATA[0] = vcc;
+    if (isnan(SOIL_MOISTURE_PERCENT))
+    {
+        LORA_DATA[4] = 255;
+        LORA_DATA[5] = 255;
+    }
+    else
+    {
+        LORA_DATA[4] = soil >> 8;
+        LORA_DATA[5] = soil & 0xFF;
+    }
 }
 
 void LoRaWANVersion()

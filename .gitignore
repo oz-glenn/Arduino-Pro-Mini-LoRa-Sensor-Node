@@ -19,3 +19,4 @@
 
 # credentials
 *_credentials.h
+.DS_Store
